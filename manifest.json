@@ -2,21 +2,24 @@
   "manifest_version": 3,
   "name": "GITLEET",
   "version": "1.0",
-  "description": "This extension is push your leetcode solution to github",
+  "description": "Push your LeetCode solutions to GitHub and LinkedIn",
   "permissions": [
     "storage",
     "activeTab",
     "tabs",
-    "scripting"
+    "scripting",
+    "notifications",
+    "identity"
+  ],
+  "host_permissions": [
+    "https://leetcode.com/*",
+    "https://api.github.com/*",
+    "https://api.linkedin.com/*",
+    "https://www.linkedin.com/*"
   ],
   "background": {
     "service_worker": "background.js"
   },
-  "host_permissions": [
-    "https://leetcode.com/*",
-    "https://api.github.com/*",
-    "https://www.linkedin.com/*"
-  ],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -25,6 +28,7 @@
       "128": "icons/icon128.png"
     }
   },
+  "options_page": "settings.html",
   "content_scripts": [
     {
       "matches": [

@@ -357,7 +357,7 @@ document.getElementById('postButton').addEventListener('click', async () => {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${linkedinToken}`,
-        'LinkedIn-Version': '202608',
+        'LinkedIn-Version': '202506',
         'X-Restli-Protocol-Version': '2.0.0',
         'Content-Type': 'application/json'
       },
@@ -389,7 +389,7 @@ document.getElementById('postButton').addEventListener('click', async () => {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${linkedinToken}`,
-        'LinkedIn-Version': '202608',
+        'LinkedIn-Version': '202506',
         'X-Restli-Protocol-Version': '2.0.0',
         'Content-Type': 'application/json'
       },

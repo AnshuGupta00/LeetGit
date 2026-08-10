@@ -1,64 +1,113 @@
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.action === 'postToLinkedIn') {
-    handlePostToLinkedIn(msg.text);
+    handlePostToLinkedInAPI(msg.text);
+  }
+  if (msg.action === 'authorizeLinkedin') {
+    authorizeLinkedin();
   }
   return false;
 });
 
-function waitForTabComplete(tabId, timeoutMs = 15000) {
-  return new Promise((resolve) => {
-    let done = false;
-    function listener(updatedTabId, info) {
-      if (updatedTabId === tabId && info.status === 'complete' && !done) {
-        done = true;
-        chrome.tabs.onUpdated.removeListener(listener);
-        resolve();
-      }
-    }
-    chrome.tabs.onUpdated.addListener(listener);
-    setTimeout(() => {
-      if (!done) {
-        done = true;
-        chrome.tabs.onUpdated.removeListener(listener);
-        resolve();
-      }
-    }, timeoutMs);
+const CLIENT_ID = '8640xvc47jbkk1'; // You'll need to replace this with YOUR LinkedIn app Client ID
+const REDIRECT_URI = chrome.identity.getRedirectURL();
+
+function notify(message) {
+  chrome.notifications.create({
+    type: 'basic',
+    iconUrl: 'icons/icon128.png',
+    title: 'GITLEET',
+    message
   });
 }
 
-async function handlePostToLinkedIn(text) {
-  const newTab = await chrome.tabs.create({ url: 'https://www.linkedin.com/feed/' });
-  await waitForTabComplete(newTab.id);
-  await new Promise(r => setTimeout(r, 1500));
+// ---- LinkedIn OAuth Authorization ----
+async function authorizeLinkedin() {
+  const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&scope=w_member_social%20openid%20profile&state=gitleet`;
 
-  await chrome.scripting.executeScript({
-    target: { tabId: newTab.id },
-    func: (postText) => {
-      function clickStartPost() {
-        const allEls = Array.from(document.querySelectorAll('*'));
-        const match = allEls.find(el => {
-          if (el.children.length > 0) return false;
-          if (!/start a post/i.test(el.textContent || '')) return false;
-          const rect = el.getBoundingClientRect();
-          return rect.width > 0 && rect.height > 0;
-        });
-        if (match) { match.click(); return true; }
-        return false;
+  chrome.identity.launchWebAuthFlow(
+    { url: authUrl, interactive: true },
+    async (redirectUrl) => {
+      if (!redirectUrl) {
+        notify('❌ LinkedIn authorization cancelled');
+        return;
       }
-      function insertWhenReady(attempt) {
-        const box = document.querySelector('div[role="textbox"][contenteditable="true"]')
-          || document.querySelector('[data-placeholder][contenteditable="true"]')
-          || document.querySelector('div[contenteditable="true"]');
-        if (box) {
-          box.focus();
-          document.execCommand('insertText', false, postText);
+
+      try {
+        const url = new URL(redirectUrl);
+        const code = url.searchParams.get('code');
+        
+        if (!code) {
+          notify('❌ Authorization failed: no code received');
           return;
         }
-        if (attempt < 20) setTimeout(() => insertWhenReady(attempt + 1), 500);
+
+        // Exchange code for access token via YOUR backend
+        // For now, we'll store the code and notify the user
+        // You'll need to set up a backend endpoint to exchange the code for a token
+        
+        const response = await fetch('https://YOUR_BACKEND_URL/exchange-linkedin-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, redirectUri: REDIRECT_URI })
+        }).catch(async (e) => {
+          // Fallback: Open a tab with instructions
+          notify('⚠️ Backend not configured. Check extension settings for manual setup.');
+          return null;
+        });
+
+        if (response && response.ok) {
+          const { access_token, member_id } = await response.json();
+          chrome.storage.sync.set({
+            linkedinToken: access_token,
+            linkedinMemberId: member_id,
+            linkedinAuthTime: Date.now()
+          });
+          notify('✅ LinkedIn authorized successfully!');
+        }
+      } catch (e) {
+        notify(`❌ Auth exchange failed: ${e.message}`);
       }
-      const started = clickStartPost();
-      setTimeout(() => insertWhenReady(0), started ? 1200 : 0);
-    },
-    args: [text]
-  });
-} 
+    }
+  );
+}
+
+// ---- Post to LinkedIn via API ----
+async function handlePostToLinkedInAPI(text) {
+  const { linkedinToken, linkedinMemberId } = await chrome.storage.sync.get(['linkedinToken', 'linkedinMemberId']);
+
+  if (!linkedinToken || !linkedinMemberId) {
+    notify('❌ LinkedIn not authorized. Click "Authorize LinkedIn" in settings first.');
+    return;
+  }
+
+  try {
+    const response = await fetch('https://api.linkedin.com/rest/posts', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${linkedinToken}`,
+        'LinkedIn-Version': '202608',
+        'X-Restli-Protocol-Version': '2.0.0',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        author: `urn:li:person:${linkedinMemberId}`,
+        commentary: text,
+        visibility: 'PUBLIC',
+        distribution: { feedDistribution: 'MAIN_FEED' },
+        lifecycleState: 'PUBLISHED'
+      })
+    });
+
+    if (response.ok) {
+      notify('✅ Posted to LinkedIn successfully!');
+    } else if (response.status === 401) {
+      notify('❌ LinkedIn token expired. Re-authorize in settings.');
+      chrome.storage.sync.remove(['linkedinToken', 'linkedinMemberId']);
+    } else {
+      const error = await response.json();
+      notify(`❌ LinkedIn API error: ${error.message || 'Unknown error'}`);
+    }
+  } catch (e) {
+    notify(`❌ Post failed: ${e.message}`);
+  }
+}

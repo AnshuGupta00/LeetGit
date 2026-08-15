@@ -1,0 +1,6 @@
+{
+  "name": "gitleet-backend",
+  "version": "1.0.0",
+  "description": "GitLeet LinkedIn OAuth Backend",
+  "private": true
+}

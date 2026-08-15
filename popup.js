@@ -357,7 +357,7 @@ document.getElementById('postButton').addEventListener('click', async () => {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${linkedinToken}`,
-        'LinkedIn-Version': '202608',  // ← CHANGE THIS to '202506'
+        'LinkedIn-Version': '202608',
         'X-Restli-Protocol-Version': '2.0.0',
         'Content-Type': 'application/json'
       },

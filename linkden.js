@@ -28,21 +28,21 @@ function buildLinkedInPost(response, githubLink) {
     ''
   ];
   if (response.runtime) {
-    const runtimeBeatsPart = response.runtimeBeats ? ` — beats ${response.runtimeBeats}%` : '';
+    const runtimeBeatsPart = response.runtimeBeats ? ` — beats ${response.runtimeBeats}% of ${response.language} submissions` : '';
     lines.push(`⏱️ Runtime: ${response.runtime}${runtimeBeatsPart}`);
   }
   if (response.memory) {
-    const memoryBeatsPart = response.memoryBeats ? ` — beats ${response.memoryBeats}%` : '';
+    const memoryBeatsPart = response.memoryBeats ? ` — beats ${response.memoryBeats}% of ${response.language} submissions` : '';
     lines.push(`💾 Memory: ${response.memory}${memoryBeatsPart}`);
   }
-  lines.push('', '[Add your approach or insights]', '');
+  lines.push('', '[Add a line here about your approach or what you learned]', '');
   if (githubLink) lines.push(`Code: ${githubLink}`);
   lines.push(`Problem: ${lastProblemLink}`, '');
   lines.push(`#LeetCode #${(response.language || '').replace(/[^a-zA-Z0-9]/g, '')} #100DaysOfCode #DSA`);
   return lines.join('\n');
 }
 
-// ======== CODE SCREENSHOT CARD ========
+// ---- code screenshot card ----
 
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
@@ -159,109 +159,47 @@ async function generateCodeCard(tab, title) {
   return buildCodeCard(cropped, title);
 }
 
-// ======== GENERATE LINKEDIN POST ========
+// ---- generate ----
 
-const shareLinkedinBtn = document.getElementById('shareLinkedin');
-if (shareLinkedinBtn) {
-  shareLinkedinBtn.addEventListener('click', async () => {
-    linkedinStatusEl.textContent = '';
+document.getElementById('shareLinkedin').addEventListener('click', async () => {
+  linkedinStatusEl.textContent = '';
 
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.url?.includes('leetcode.com/problems/')) {
-      linkedinStatusEl.textContent = 'Open a LeetCode problem tab first';
-      return;
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.url?.includes('leetcode.com/problems/')) {
+    linkedinStatusEl.textContent = 'Open a LeetCode problem tab first';
+    return;
+  }
+
+  const response = await chrome.tabs.sendMessage(tab.id, { action: 'getSolution' }).catch(() => null);
+  if (!response) {
+    linkedinStatusEl.textContent = 'Could not read the page — refresh and try again';
+    return;
+  }
+
+  const { repo } = await chrome.storage.sync.get(['repo']);
+  const ext = languageToExtensionLI(response.language);
+  const paddedNumber = response.number ? response.number.padStart(4, '0') : null;
+  const githubPath = paddedNumber
+    ? `${paddedNumber}-${response.slug}/${response.slug}.${ext}`
+    : `${response.slug}/${response.slug}.${ext}`;
+  const githubLink = repo ? `https://github.com/${repo}/blob/main/${githubPath}` : '';
+  lastProblemLink = `https://leetcode.com/problems/${response.slug}/`;
+
+  document.getElementById('linkedinText').value = buildLinkedInPost(response, githubLink);
+  document.getElementById('linkedinText').style.display = 'block';
+  document.getElementById('copyAndOpen').style.display = 'block';
+
+  try {
+    const dataUrl = await generateCodeCard(tab, response.title);
+    if (dataUrl) {
+      document.getElementById('cardPreview').src = dataUrl;
+      document.getElementById('cardPreview').style.display = 'block';
+      document.getElementById('downloadImage').href = dataUrl;
+      document.getElementById('downloadImage').style.display = 'block';
     }
+  } catch (e) {
+    console.warn('Card generation failed:', e);
+  }
 
-    const response = await chrome.tabs.sendMessage(tab.id, { action: 'getSolution' }).catch(() => null);
-    if (!response) {
-      linkedinStatusEl.textContent = 'Could not read the page — refresh and try again';
-      return;
-    }
-
-    const { repo } = await chrome.storage.sync.get(['repo']);
-    const ext = languageToExtensionLI(response.language);
-    const paddedNumber = response.number ? response.number.padStart(4, '0') : null;
-    const githubPath = paddedNumber
-      ? `${paddedNumber}-${response.slug}/${response.slug}.${ext}`
-      : `${response.slug}/${response.slug}.${ext}`;
-    const githubLink = repo ? `https://github.com/${repo}/blob/main/${githubPath}` : '';
-    lastProblemLink = `https://leetcode.com/problems/${response.slug}/`;
-
-    document.getElementById('linkedinText').value = buildLinkedInPost(response, githubLink);
-    document.getElementById('linkedinText').style.display = 'block';
-    document.getElementById('postButton').style.display = 'block';
-
-    try {
-      const dataUrl = await generateCodeCard(tab, response.title);
-      if (dataUrl) {
-        document.getElementById('cardPreview').src = dataUrl;
-        document.getElementById('cardPreview').style.display = 'block';
-        document.getElementById('downloadImage').href = dataUrl;
-        document.getElementById('downloadImage').style.display = 'block';
-      }
-    } catch (e) {
-      console.warn('Card generation failed:', e);
-    }
-
-    linkedinStatusEl.textContent = response.runtime ? '' : 'No runtime found — generate right after a successful Submit';
-  });
-}
-
-// ======== POST TO LINKEDIN ========
-
-const postBtn = document.getElementById('postButton');
-if (postBtn) {
-  postBtn.addEventListener('click', async () => {
-    const text = document.getElementById('linkedinText').value;
-    linkedinStatusEl.textContent = '⏳ Posting to LinkedIn...';
-
-    const { linkedinToken } = await chrome.storage.sync.get(['linkedinToken']);
-
-    if (!linkedinToken) {
-      linkedinStatusEl.textContent = '❌ LinkedIn token not saved. Go to Settings and paste your token.';
-      return;
-    }
-
-    try {
-      const meResponse = await fetch('https://api.linkedin.com/rest/me', {
-        headers: { 'Authorization': `Bearer ${linkedinToken}` }
-      });
-
-      if (!meResponse.ok) {
-        linkedinStatusEl.textContent = '❌ Invalid LinkedIn token.';
-        return;
-      }
-
-      const meData = await meResponse.json();
-      const memberId = meData.id;
-
-      const postResponse = await fetch('https://api.linkedin.com/rest/posts', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${linkedinToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          author: `urn:li:person:${memberId}`,
-          commentary: text,
-          visibility: 'PUBLIC',
-          distribution: { feedDistribution: 'MAIN_FEED' },
-          lifecycleState: 'PUBLISHED'
-        })
-      });
-
-      if (postResponse.ok) {
-        linkedinStatusEl.textContent = '✅ Posted to LinkedIn!';
-        document.getElementById('linkedinText').value = '';
-        document.getElementById('postButton').style.display = 'none';
-        document.getElementById('cardPreview').style.display = 'none';
-        setTimeout(() => { linkedinStatusEl.textContent = ''; }, 2000);
-      } else {
-        const error = await postResponse.json();
-        linkedinStatusEl.textContent = `❌ Error: ${error.message || 'Unknown error'}`;
-      }
-    } catch (e) {
-      linkedinStatusEl.textContent = `❌ ${e.message}`;
-    }
-  });
-}
+  linkedinStatusEl.textContent = response.runtime ? '' : 'No runtime found — generate right after a successful Submit';
+});

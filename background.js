@@ -10,7 +10,6 @@ chrome.runtime.onMessage.addListener((msg) => {
 
 const CLIENT_ID = '8640xvc47jbkk1'; // You'll need to replace this with YOUR LinkedIn app Client ID
 const REDIRECT_URI = chrome.identity.getRedirectURL();
-const BACKEND_URL = 'https://gitlinked-two.vercel.app/api/exchange-linkedin-code';
 
 function notify(message) {
   chrome.notifications.create({
@@ -42,14 +41,17 @@ async function authorizeLinkedin() {
           return;
         }
 
-        // Exchange code for access token via backend
-        const response = await fetch(BACKEND_URL, {
+        // Exchange code for access token via YOUR backend
+        // For now, we'll store the code and notify the user
+        // You'll need to set up a backend endpoint to exchange the code for a token
+        
+        const response = await fetch('https://YOUR_BACKEND_URL/exchange-linkedin-code', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code, redirectUri: REDIRECT_URI })
         }).catch(async (e) => {
-          notify('⚠️ Backend error. Check your internet connection.');
-          console.error('Backend fetch error:', e);
+          // Fallback: Open a tab with instructions
+          notify('⚠️ Backend not configured. Check extension settings for manual setup.');
           return null;
         });
 
@@ -61,13 +63,8 @@ async function authorizeLinkedin() {
             linkedinAuthTime: Date.now()
           });
           notify('✅ LinkedIn authorized successfully!');
-        } else if (response) {
-          const errorText = await response.text();
-          console.error('Backend error response:', response.status, errorText);
-          notify(`❌ Backend error (${response.status}). Check your env variables.`);
         }
       } catch (e) {
-        console.error('Auth exchange error:', e);
         notify(`❌ Auth exchange failed: ${e.message}`);
       }
     }
@@ -105,71 +102,7 @@ async function handlePostToLinkedInAPI(text) {
       notify('✅ Posted to LinkedIn successfully!');
     } else if (response.status === 401) {
       notify('❌ LinkedIn token expired. Re-authorize in settings.');
-      chrome.storage.sync.remove(['linkedinToken', 'linkedinMachrome.runtime.onMessage.addListener((msg) => {
-  if (msg.action === 'postToLinkedIn') {
-    handlePostToLinkedInAPI(msg.text);
-  }
-  return false;
-});
-
-function notify(message) {
-  chrome.notifications.create({
-    type: 'basic',
-    iconUrl: 'icons/icon128.png',
-    title: 'GITLEET',
-    message
-  });
-}
-
-async function handlePostToLinkedInAPI(text) {
-  const { linkedinToken } = await chrome.storage.sync.get(['linkedinToken']);
-
-  if (!linkedinToken) {
-    notify('❌ LinkedIn token not saved. Go to Settings and paste your token.');
-    return;
-  }
-
-  try {
-    const meResponse = await fetch('https://api.linkedin.com/rest/me', {
-      headers: { 'Authorization': `Bearer ${linkedinToken}` }
-    });
-
-    if (!meResponse.ok) {
-      notify('❌ Invalid LinkedIn token.');
-      return;
-    }
-
-    const meData = await meResponse.json();
-    const memberId = meData.id;
-
-    const response = await fetch('https://api.linkedin.com/rest/posts', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${linkedinToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        author: `urn:li:person:${memberId}`,
-        commentary: text,
-        visibility: 'PUBLIC',
-        distribution: { feedDistribution: 'MAIN_FEED' },
-        lifecycleState: 'PUBLISHED'
-      })
-    });
-
-    if (response.ok) {
-      notify('✅ Posted to LinkedIn successfully!');
-    } else if (response.status === 401) {
-      notify('❌ LinkedIn token expired. Paste a new token in settings.');
-      chrome.storage.sync.remove(['linkedinToken']);
-    } else {
-      const error = await response.json();
-      notify(`❌ LinkedIn API error: ${error.message || 'Unknown error'}`);
-    }
-  } catch (e) {
-    notify(`❌ Post failed: ${e.message}`);
-  }
-}emberId']);
+      chrome.storage.sync.remove(['linkedinToken', 'linkedinMemberId']);
     } else {
       const error = await response.json();
       notify(`❌ LinkedIn API error: ${error.message || 'Unknown error'}`);

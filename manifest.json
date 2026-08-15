@@ -9,7 +9,8 @@
     "tabs",
     "scripting",
     "notifications",
-    "identity"
+     "identity",
+    "storage"
   ],
   "host_permissions": [
     "https://leetcode.com/*",

@@ -9,9 +9,10 @@ app.use(express.json());
 
 const CLIENT_SECRET = process.env.LINKEDIN_CLIENT_SECRET; // Set in Replit secrets
 const CLIENT_ID = process.env.LINKEDIN_CLIENT_ID;
+const REDIRECT_URI = process.env.LINKEDIN_REDIRECT_URI;
 
 app.post('/exchange-linkedin-code', async (req, res) => {
-  const { code, redirectUri } = req.body;
+  const { code } = req.body;
 
   try {
     const tokenRes = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
@@ -20,9 +21,9 @@ app.post('/exchange-linkedin-code', async (req, res) => {
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
-        client_id: "8640xvc47jbkk1",
-        client_secret: "WPL_AP1.P2lk9YUsrAp2j4Ul.ryLb/g==",
-        redirect_uri: "https://khbikoeinfnkfcnmfkhkpmnlicjeionc.chromiumapp.org/"
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        redirect_uri: redirectUri
       })
     });
 

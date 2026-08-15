@@ -105,7 +105,71 @@ async function handlePostToLinkedInAPI(text) {
       notify('✅ Posted to LinkedIn successfully!');
     } else if (response.status === 401) {
       notify('❌ LinkedIn token expired. Re-authorize in settings.');
-      chrome.storage.sync.remove(['linkedinToken', 'linkedinMemberId']);
+      chrome.storage.sync.remove(['linkedinToken', 'linkedinMachrome.runtime.onMessage.addListener((msg) => {
+  if (msg.action === 'postToLinkedIn') {
+    handlePostToLinkedInAPI(msg.text);
+  }
+  return false;
+});
+
+function notify(message) {
+  chrome.notifications.create({
+    type: 'basic',
+    iconUrl: 'icons/icon128.png',
+    title: 'GITLEET',
+    message
+  });
+}
+
+async function handlePostToLinkedInAPI(text) {
+  const { linkedinToken } = await chrome.storage.sync.get(['linkedinToken']);
+
+  if (!linkedinToken) {
+    notify('❌ LinkedIn token not saved. Go to Settings and paste your token.');
+    return;
+  }
+
+  try {
+    const meResponse = await fetch('https://api.linkedin.com/rest/me', {
+      headers: { 'Authorization': `Bearer ${linkedinToken}` }
+    });
+
+    if (!meResponse.ok) {
+      notify('❌ Invalid LinkedIn token.');
+      return;
+    }
+
+    const meData = await meResponse.json();
+    const memberId = meData.id;
+
+    const response = await fetch('https://api.linkedin.com/rest/posts', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${linkedinToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        author: `urn:li:person:${memberId}`,
+        commentary: text,
+        visibility: 'PUBLIC',
+        distribution: { feedDistribution: 'MAIN_FEED' },
+        lifecycleState: 'PUBLISHED'
+      })
+    });
+
+    if (response.ok) {
+      notify('✅ Posted to LinkedIn successfully!');
+    } else if (response.status === 401) {
+      notify('❌ LinkedIn token expired. Paste a new token in settings.');
+      chrome.storage.sync.remove(['linkedinToken']);
+    } else {
+      const error = await response.json();
+      notify(`❌ LinkedIn API error: ${error.message || 'Unknown error'}`);
+    }
+  } catch (e) {
+    notify(`❌ Post failed: ${e.message}`);
+  }
+}emberId']);
     } else {
       const error = await response.json();
       notify(`❌ LinkedIn API error: ${error.message || 'Unknown error'}`);

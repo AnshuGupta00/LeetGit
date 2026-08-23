@@ -20,12 +20,17 @@ document.getElementById('saveSettings').addEventListener('click', () => {
 
 // ---- LinkedIn Authorization ----
 document.getElementById('authLinkedin').addEventListener('click', () => {
-  document.getElementById('linkedinStatus').textContent = '⏳ Opening LinkedIn authorization...';
-  chrome.runtime.sendMessage({ action: 'authorizeLinkedin' });
+  document.getElementById('linkedinStatus').textContent =
+    '⏳ Opening LinkedIn authorization...';
+
+  chrome.runtime.sendMessage({
+    action: 'authorizeLinkedin'
+  });
 });
 
 document.getElementById('clearLinkedin').addEventListener('click', () => {
-  chrome.storage.sync.remove(['linkedinToken', 'linkedinMemberId'], () => {
+  chrome.storage.sync.get(
+  ['token', 'repo', 'linkedinMemberId'], () => {
     document.getElementById('linkedinStatus').textContent = '❌ LinkedIn authorization cleared';
     setTimeout(() => { document.getElementById('linkedinStatus').textContent = ''; }, 2000);
   });

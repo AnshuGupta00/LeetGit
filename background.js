@@ -10,6 +10,7 @@ chrome.runtime.onMessage.addListener((msg) => {
 
 const CLIENT_ID = '8640xvc47jbkk1'; // You'll need to replace this with YOUR LinkedIn app Client ID
 const REDIRECT_URI = chrome.identity.getRedirectURL();
+const BACKEND_URL = 'https://gitlinked-two.vercel.app/api/exchange-linkedin-code';
 
 function notify(message) {
   chrome.notifications.create({
@@ -41,17 +42,14 @@ async function authorizeLinkedin() {
           return;
         }
 
-        // Exchange code for access token via YOUR backend
-        // For now, we'll store the code and notify the user
-        // You'll need to set up a backend endpoint to exchange the code for a token
-        
-        const response = await fetch('https://YOUR_BACKEND_URL/exchange-linkedin-code', {
+        // Exchange code for access token via backend
+        const response = await fetch(BACKEND_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code, redirectUri: REDIRECT_URI })
         }).catch(async (e) => {
-          // Fallback: Open a tab with instructions
-          notify('⚠️ Backend not configured. Check extension settings for manual setup.');
+          notify('⚠️ Backend error. Check your internet connection.');
+          console.error('Backend fetch error:', e);
           return null;
         });
 
@@ -63,8 +61,13 @@ async function authorizeLinkedin() {
             linkedinAuthTime: Date.now()
           });
           notify('✅ LinkedIn authorized successfully!');
+        } else if (response) {
+          const errorText = await response.text();
+          console.error('Backend error response:', response.status, errorText);
+          notify(`❌ Backend error (${response.status}). Check your env variables.`);
         }
       } catch (e) {
+        console.error('Auth exchange error:', e);
         notify(`❌ Auth exchange failed: ${e.message}`);
       }
     }

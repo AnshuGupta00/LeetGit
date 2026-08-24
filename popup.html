@@ -3,38 +3,303 @@
 <head>
   <meta charset="UTF-8">
   <style>
-    body { width: 300px; padding: 12px; font-family: sans-serif; }
-    input, button, select, textarea { width: 100%; margin: 4px 0; padding: 6px; box-sizing: border-box; font-family: inherit; }
-    #settingsLink { display: block; text-align: center; margin-bottom: 10px; }
-    #settingsLink a { background: #0a66c2; color: white; padding: 8px 12px; text-decoration: none; border-radius: 5px; font-size: 14px; cursor: pointer; }
-    #settingsLink a:hover { background: #054399; }
+    * {
+      box-sizing: border-box;
+    }
+    
+    body {
+      width: 500px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f8f9fa;
+    }
+    
+    .container {
+      padding: 16px;
+    }
+    
+    .tab-buttons {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      border-bottom: 2px solid #e1e4e8;
+      padding-bottom: 12px;
+    }
+    
+    .tab-btn {
+      padding: 8px 16px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: #666;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -12px;
+      transition: all 0.2s;
+    }
+    
+    .tab-btn.active {
+      color: #0A66C2;
+      border-bottom-color: #0A66C2;
+    }
+    
+    .tab-btn:hover {
+      color: #333;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    h2 {
+      margin: 0 0 16px 0;
+      font-size: 18px;
+      color: #333;
+    }
+    
+    h3 {
+      margin: 16px 0 12px 0;
+      font-size: 14px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .form-group {
+      margin-bottom: 12px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 13px;
+      color: #555;
+      font-weight: 500;
+    }
+    
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #d1d5da;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: monospace;
+    }
+    
+    input[type="text"]:focus,
+    input[type="password"]:focus {
+      outline: none;
+      border-color: #0A66C2;
+      box-shadow: 0 0 0 3px rgba(10, 102, 194, 0.1);
+    }
+    
+    button {
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      width: 100%;
+      margin-bottom: 8px;
+    }
+    
+    .btn-primary {
+      background: #0A66C2;
+      color: white;
+    }
+    
+    .btn-primary:hover:not(:disabled) {
+      background: #054399;
+    }
+    
+    .btn-primary:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+    
+    .btn-secondary {
+      background: #f0f2f5;
+      color: #333;
+    }
+    
+    .btn-secondary:hover {
+      background: #e4e6eb;
+    }
+    
+    .btn-danger {
+      background: #E74C3C;
+      color: white;
+    }
+    
+    .btn-danger:hover {
+      background: #C0392B;
+    }
+    
+    .status {
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      margin-bottom: 12px;
+      min-height: 20px;
+      line-height: 1.4;
+    }
+    
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    
+    .status.info {
+      background: #d1ecf1;
+      color: #0c5460;
+    }
+    
+    .divider {
+      height: 1px;
+      background: #e1e4e8;
+      margin: 16px 0;
+    }
+    
+    .section {
+      margin-bottom: 20px;
+    }
+    
+    .info-text {
+      font-size: 12px;
+      color: #666;
+      margin-top: 8px;
+      line-height: 1.4;
+    }
+    
+    textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #d1d5da;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 12px;
+      resize: vertical;
+      min-height: 100px;
+      display: none;
+    }
+    
+    .card-preview {
+      max-width: 100%;
+      border-radius: 6px;
+      margin-top: 12px;
+      display: none;
+    }
+    
+    a {
+      color: #0A66C2;
+      text-decoration: none;
+    }
+    
+    a:hover {
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
-  <!-- Settings Link -->
-  <div id="settingsLink">
-    <a href="settings.html" target="_blank">⚙️ Settings</a>
+  <div class="container">
+    <!-- TAB NAVIGATION -->
+    <div class="tab-buttons">
+      <button class="tab-btn active" data-tab="github">GitHub</button>
+      <button class="tab-btn" data-tab="linkedin">LinkedIn</button>
+      <button class="tab-btn" data-tab="share">Share</button>
+    </div>
+
+    <!-- GITHUB TAB -->
+    <div id="github" class="tab-content active">
+      <h2>GitHub Settings</h2>
+      <div id="status" class="status"></div>
+      
+      <div class="section">
+        <div class="form-group">
+          <label for="token">GitHub Personal Access Token</label>
+          <input 
+            type="password" 
+            id="token" 
+            placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+          >
+          <div class="info-text">
+            Create a token at <a href="https://github.com/settings/tokens" target="_blank">GitHub Settings</a> with repo access
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="repo">Repository (username/repo)</label>
+          <input 
+            type="text" 
+            id="repo" 
+            placeholder="your-username/leetcode-solutions"
+          >
+        </div>
+
+        <button class="btn-primary" id="saveSettings">💾 Save Settings</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <button class="btn-primary" id="push">⬆️ Push Current Solution to GitHub</button>
+    </div>
+
+    <!-- LINKEDIN TAB -->
+    <div id="linkedin" class="tab-content">
+      <h2>LinkedIn Settings</h2>
+      <div id="linkedinStatus" class="status"></div>
+      
+      <div class="section">
+        <p style="font-size: 13px; color: #666; margin: 0 0 12px 0;">
+          Authorize once to post LeetCode solutions directly to your LinkedIn profile
+        </p>
+        
+        <button class="btn-primary" id="linkedinAuthBtn">🔒 Authorize LinkedIn</button>
+        <button class="btn-danger" id="linkedinClearBtn" style="display: none;">✕ Clear Authorization</button>
+        
+        <div class="info-text" style="margin-top: 12px;">
+          Your LinkedIn authorization token will be securely stored and used only to post on your behalf.
+        </div>
+      </div>
+    </div>
+
+    <!-- SHARE TAB -->
+    <div id="share" class="tab-content">
+      <h2>Share Solution</h2>
+      <div id="linkedinShareStatus" class="status"></div>
+      
+      <button class="btn-primary" id="shareLinkedin">📝 Generate LinkedIn Post</button>
+      
+      <textarea id="linkedinText" placeholder="Your post text will appear here..."></textarea>
+      
+      <canvas id="cardCanvas" style="display: none;"></canvas>
+      <img id="cardPreview" class="card-preview" alt="Code card preview">
+      
+      <div style="margin-top: 12px; display: flex; gap: 8px;">
+        <button class="btn-primary" id="postButton" style="display: none; flex: 1;">📤 Post to LinkedIn</button>
+        <a id="downloadImage" href="#" download="code-solution.png" style="display: none; flex: 1;">
+          <button class="btn-secondary">⬇️ Download Image</button>
+        </a>
+      </div>
+    </div>
   </div>
 
-  <div id="setup">
-    <input id="token" placeholder="GitHub Personal Access Token" type="password">
-    <input id="repo" placeholder="username/repo-name">
-    <button id="saveSettings">Save Settings</button>
-  </div>
-  <hr>
-  <button id="push">Push Current Solution</button>
-  <p id="problemInfo"></p>
-  <p id="status"></p>
-  <hr>  
-  <button id="shareLinkedin">Generate LinkedIn Post</button>
-  <textarea id="linkedinText" rows="9" style="display:none;"></textarea>
-  <canvas id="cardCanvas" width="1200" height="675" style="display:none;"></canvas>
-  <img id="cardPreview" style="width:100%; border-radius:6px; margin:6px 0; display:none;">
-  <a id="downloadImage" style="display:none; text-align:center;" download="leetcode-card.png">Download Image</a>
-  <button id="postButton" style="display: none; background: #27ae60; padding: 10px 20px; cursor: pointer;">
-    📤 Post to LinkedIn Now
-  </button>
-  <p id="linkedinStatus"></p>
   <script src="popup.js"></script>
+  <script src="tabs.js"></script>
 </body>
 </html>

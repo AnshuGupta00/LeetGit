@@ -2,20 +2,168 @@ const statusEl = document.getElementById('status');
 const linkedinStatusEl = document.getElementById('linkedinStatus');
 let lastProblemLink = '';
 
-// ========== GITHUB SETUP ==========
+// ========== BACKEND CONFIGURATION ==========
+// Local backend (run `node backend.js` in the project folder while authorizing).
+// If you later deploy backend.js, replace this with the deployed URL,
+// e.g. 'https://my-backend.vercel.app'
+const BACKEND_URL = 'http://localhost:3000';
 
-chrome.storage.sync.get(['token', 'repo'], (data) => {
-  if (data.token) document.getElementById('token').value = data.token;
-  if (data.repo) document.getElementById('repo').value = data.repo;
-});
+// ========== INITIALIZATION ==========
+window.addEventListener('DOMContentLoaded', loadAllSettings);
+
+async function loadAllSettings() {
+  // Load GitHub settings
+  chrome.storage.sync.get(['token', 'repo'], (data) => {
+    if (data.token) document.getElementById('token').value = data.token;
+    if (data.repo) document.getElementById('repo').value = data.repo;
+  });
+
+  // Load LinkedIn status
+  chrome.storage.sync.get(['linkedinToken', 'linkedinMemberId'], (data) => {
+    if (data.linkedinToken) {
+      updateLinkedInStatus(true);
+    } else {
+      updateLinkedInStatus(false);
+    }
+  });
+}
+
+function updateLinkedInStatus(isAuthorized) {
+  const authBtn = document.getElementById('linkedinAuthBtn');
+  const clearBtn = document.getElementById('linkedinClearBtn');
+  
+  if (isAuthorized) {
+    authBtn.textContent = '✅ LinkedIn Authorized';
+    authBtn.disabled = true;
+    authBtn.style.opacity = '0.6';
+    clearBtn.style.display = 'block';
+  } else {
+    authBtn.textContent = '🔒 Authorize LinkedIn';
+    authBtn.disabled = false;
+    authBtn.style.opacity = '1';
+    clearBtn.style.display = 'none';
+  }
+}
+
+// ========== GITHUB SETUP ==========
 
 document.getElementById('saveSettings').addEventListener('click', () => {
   const token = document.getElementById('token').value;
   const repo = document.getElementById('repo').value;
+  
+  if (!token || !repo) {
+    statusEl.textContent = 'Please enter both token and repo';
+    return;
+  }
+  
   chrome.storage.sync.set({ token, repo }, () => {
-    statusEl.textContent = 'Settings saved';
+    statusEl.textContent = '✅ GitHub settings saved';
+    setTimeout(() => { statusEl.textContent = ''; }, 2000);
   });
 });
+
+// ========== LINKEDIN AUTHORIZATION ==========
+
+document.getElementById('linkedinAuthBtn').addEventListener('click', authorizeLinkedin);
+document.getElementById('linkedinClearBtn').addEventListener('click', clearLinkedinAuth);
+
+async function authorizeLinkedin() {
+  linkedinStatusEl.textContent = '🔄 Opening LinkedIn authorization...';
+  
+  const clientId = '8640xvc47jbkk1'; // Your LinkedIn Client ID
+  const redirectUri = chrome.identity.getRedirectURL();
+  
+  console.log('Redirect URI:', redirectUri);
+  console.log('Backend URL:', BACKEND_URL);
+  
+  const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=openid%20profile%20email%20w_member_social`;
+
+  try {
+    // Launch web auth flow
+    const responseUrl = await chrome.identity.launchWebAuthFlow({
+      url: authUrl,
+      interactive: true
+    });
+
+    console.log('Response URL received');
+
+    // Extract authorization code
+    const url = new URL(responseUrl);
+    const code = url.searchParams.get('code');
+
+    if (!code) {
+      throw new Error('No authorization code received from LinkedIn');
+    }
+
+    console.log('Auth code received, exchanging for token...');
+    linkedinStatusEl.textContent = '⏳ Exchanging code for token...';
+
+    // Validate backend URL
+    if (BACKEND_URL.includes('your-')) {
+      throw new Error('❌ Backend URL not configured! Update BACKEND_URL in popup.js');
+    }
+
+    // Exchange code for token on backend
+    const tokenEndpoint = `${BACKEND_URL}/exchange-linkedin-code`;
+    console.log('Calling backend:', tokenEndpoint);
+    
+    const tokenResponse = await fetch(tokenEndpoint, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        code: code,
+        redirectUri: redirectUri
+      })
+    });
+
+    console.log('Backend response status:', tokenResponse.status);
+
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.json();
+      throw new Error(errorData.error || `Backend error: ${tokenResponse.statusText}`);
+    }
+
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenData.access_token) {
+      throw new Error('No access token in response from backend');
+    }
+
+    console.log('✅ Access token received');
+
+    // Save token to storage
+    chrome.storage.sync.set({
+      linkedinToken: tokenData.access_token,
+      linkedinMemberId: tokenData.member_id,
+      linkedinExpiresIn: tokenData.expires_in,
+      linkedinSavedAt: new Date().getTime()
+    }, () => {
+      console.log('✅ LinkedIn token saved to storage');
+      linkedinStatusEl.textContent = '✅ LinkedIn authorized successfully!';
+      updateLinkedInStatus(true);
+      setTimeout(() => { linkedinStatusEl.textContent = ''; }, 3000);
+    });
+
+  } catch (error) {
+    console.error('Authorization error:', error);
+    linkedinStatusEl.textContent = `❌ Error: ${error.message}`;
+    setTimeout(() => { linkedinStatusEl.textContent = ''; }, 5000);
+  }
+}
+
+async function clearLinkedinAuth() {
+  if (!confirm('Clear LinkedIn authorization?')) return;
+  
+  chrome.storage.sync.remove(['linkedinToken', 'linkedinMemberId', 'linkedinExpiresIn', 'linkedinSavedAt'], () => {
+    console.log('LinkedIn auth cleared');
+    linkedinStatusEl.textContent = '✅ LinkedIn authorization cleared';
+    updateLinkedInStatus(false);
+    setTimeout(() => { linkedinStatusEl.textContent = ''; }, 2000);
+  });
+}
 
 // ========== GITHUB PUSH ==========
 
@@ -302,6 +450,14 @@ async function generateCodeCard(tab, title) {
 
 document.getElementById('shareLinkedin').addEventListener('click', async () => {
   linkedinStatusEl.textContent = '';
+  
+  // Check authorization first
+  const { linkedinToken } = await chrome.storage.sync.get(['linkedinToken']);
+  if (!linkedinToken) {
+    linkedinStatusEl.textContent = '❌ Please authorize LinkedIn first (LinkedIn Settings tab)';
+    return;
+  }
+  
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.url?.includes('leetcode.com/problems/')) {
     linkedinStatusEl.textContent = 'Open a LeetCode problem tab first';
@@ -341,11 +497,14 @@ document.getElementById('postButton').addEventListener('click', async () => {
   const text = document.getElementById('linkedinText').value;
   const canvas = document.getElementById('cardCanvas');
   linkedinStatusEl.textContent = '⏳ Posting to LinkedIn...';
+  
   const { linkedinToken, linkedinMemberId } = await chrome.storage.sync.get(['linkedinToken', 'linkedinMemberId']);
+  
   if (!linkedinToken || !linkedinMemberId) {
-    linkedinStatusEl.textContent = '❌ LinkedIn token not saved. Go to Settings and paste your token.';
+    linkedinStatusEl.textContent = '❌ LinkedIn token not found. Please authorize in LinkedIn Settings first.';
     return;
   }
+  
   try {
     const imageBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
     if (!imageBlob) {
@@ -353,6 +512,7 @@ document.getElementById('postButton').addEventListener('click', async () => {
       return;
     }
     linkedinStatusEl.textContent = '⏳ Uploading code image...';
+    
     const assetResponse = await fetch('https://api.linkedin.com/rest/images?action=initializeUpload', {
       method: 'POST',
       headers: {
@@ -367,29 +527,35 @@ document.getElementById('postButton').addEventListener('click', async () => {
         }
       })
     });
+    
     if (!assetResponse.ok) {
       const error = await assetResponse.json();
-      linkedinStatusEl.textContent = `❌ Image registration failed: ${error.message}`;
+      linkedinStatusEl.textContent = `❌ Image registration failed: ${error.message || 'Unknown error'}`;
       return;
     }
+    
     const assetData = await assetResponse.json();
     const imageAssetUrn = assetData.value.image;
-    const uploadUrl = assetData.value.uploadMechanism['com.linkedin.digitalmedia_mediaUploadHttpRequest'].uploadUrl;
+    const uploadUrl = assetData.value.uploadUrl;
+    
     const uploadResponse = await fetch(uploadUrl, {
       method: 'PUT',
       headers: { 'Content-Type': 'image/png' },
       body: imageBlob
     });
+    
     if (!uploadResponse.ok) {
       linkedinStatusEl.textContent = '❌ Image upload failed';
       return;
     }
+    
     linkedinStatusEl.textContent = '⏳ Creating post...';
+    
     const postResponse = await fetch('https://api.linkedin.com/rest/posts', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${linkedinToken}`,
-        'LinkedIn-Version': '202608',   // ← CHANGE THIS to '202506'
+        'LinkedIn-Version': '202608',
         'X-Restli-Protocol-Version': '2.0.0',
         'Content-Type': 'application/json'
       },
@@ -397,7 +563,11 @@ document.getElementById('postButton').addEventListener('click', async () => {
         author: `urn:li:person:${linkedinMemberId}`,
         commentary: text,
         visibility: 'PUBLIC',
-        distribution: { feedDistribution: 'MAIN_FEED' },
+        distribution: {
+          feedDistribution: 'MAIN_FEED',
+          targetEntities: [],
+          thirdPartyDistributionChannels: []
+        },
         content: {
           media: {
             id: imageAssetUrn
@@ -406,6 +576,7 @@ document.getElementById('postButton').addEventListener('click', async () => {
         lifecycleState: 'PUBLISHED'
       })
     });
+    
     if (postResponse.ok) {
       linkedinStatusEl.textContent = '✅ Posted to LinkedIn with code image!';
       document.getElementById('linkedinText').value = '';
@@ -413,8 +584,11 @@ document.getElementById('postButton').addEventListener('click', async () => {
       document.getElementById('cardPreview').style.display = 'none';
       setTimeout(() => { linkedinStatusEl.textContent = ''; }, 3000);
     } else {
-      const error = await postResponse.json();
-      linkedinStatusEl.textContent = `❌ Post failed: ${error.message || 'Unknown error'}`;
+      const errText = await postResponse.text();
+      console.error('LinkedIn /rest/posts error:', postResponse.status, errText);
+      let msg = errText;
+      try { msg = JSON.parse(errText).message || errText; } catch (_) {}
+      linkedinStatusEl.textContent = `❌ Post failed (${postResponse.status}): ${msg || 'Unknown error'}`;
     }
   } catch (e) {
     console.error('LinkedIn posting error:', e);

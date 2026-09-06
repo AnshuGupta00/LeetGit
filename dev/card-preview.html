@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>GITLEET — card preview (dev tool)</title>
+  <style>
+    body { background:#161b22; color:#e6edf3; font-family:system-ui,sans-serif; padding:24px; }
+    h2 { font-size:14px; color:#8b949e; text-transform:uppercase; letter-spacing:.5px; margin:24px 0 8px; }
+    img { max-width:820px; display:block; border-radius:8px; }
+    #err { color:#ff7b72; font-family:monospace; white-space:pre-wrap; }
+  </style>
+</head>
+<body>
+  <div id="err"></div>
+  <div id="out"></div>
+
+  <script src="../extract.js"></script>
+  <script src="../linkden.js"></script>
+  <script>
+    const SAMPLES = {
+      python: `class Solution:
+    def twoSum(self, nums: List[int], target: int) -> List[int]:
+        # map value -> index for O(1) lookup
+        seen = {}
+        for i, n in enumerate(nums):
+            need = target - n
+            if need in seen:
+                return [seen[need], i]
+            seen[n] = i
+        return []`,
+
+      java: `class Solution {
+    public int[] twoSum(int[] nums, int target) {
+        Map<Integer, Integer> seen = new HashMap<>();
+        for (int i = 0; i < nums.length; i++) {
+            int need = target - nums[i];
+            if (seen.containsKey(need)) {
+                return new int[] { seen.get(need), i };
+            }
+            seen.put(nums[i], i);
+        }
+        throw new IllegalArgumentException("No solution");
+    }
+}`,
+
+      cpp: `class Solution {
+public:
+    vector<int> twoSum(vector<int>& nums, int target) {
+        unordered_map<int, int> seen;   // value -> index
+        for (int i = 0; i < nums.size(); ++i) {
+            int need = target - nums[i];
+            if (seen.count(need)) return { seen[need], i };
+            seen[nums[i]] = i;
+        }
+        return {};
+    }
+};`,
+
+      javascript: `/**
+ * @param {number[]} nums
+ * @return {number[]}
+ */
+const twoSum = function (nums, target) {
+  const seen = new Map();
+  for (let i = 0; i < nums.length; i++) {
+    const need = target - nums[i];
+    if (seen.has(need)) return [seen.get(need), i];
+    seen.set(nums[i], i);
+  }
+  return [];
+};`
+    };
+
+    (async () => {
+      const out = document.getElementById('out');
+      try {
+        for (const [lang, code] of Object.entries(SAMPLES)) {
+          const url = await generateCodeCard(code, lang, `Two Sum — ${lang}`);
+          const h = document.createElement('h2');
+          h.textContent = lang + (url ? '' : '  ← FAILED (null)');
+          out.appendChild(h);
+          if (url) {
+            const img = document.createElement('img');
+            img.src = url;
+            img.id = 'card-' + lang;
+            out.appendChild(img);
+          }
+        }
+        document.body.dataset.done = 'true';
+      } catch (e) {
+        document.getElementById('err').textContent = e.stack || String(e);
+        document.body.dataset.done = 'error';
+      }
+    })();
+  </script>
+</body>
+</html>

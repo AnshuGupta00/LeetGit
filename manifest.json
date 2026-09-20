@@ -4,14 +4,14 @@
   "version": "1.0",
   "description": "Push your LeetCode solutions to GitHub and LinkedIn",
   "permissions": [
-    "storage",
-    "activeTab",
-    "tabs",
-    "scripting",
-    "notifications",
-     "identity",
-    "storage"
-  ],
+  "storage",
+  "activeTab",
+  "tabs",
+  "scripting",
+  "notifications",
+  "identity",
+  "offscreen"
+],
   "host_permissions": [
     "https://leetcode.com/*",
     "https://api.github.com/*",
@@ -31,13 +31,17 @@
   },
   "options_page": "settings.html",
   "content_scripts": [
-    {
-      "matches": [
-        "https://leetcode.com/*"
-      ],
-      "js": [
-        "content.js"
-      ]
-    }
-  ]
+  {
+    "matches": ["https://leetcode.com/*"],
+    "js": ["inject.js"],
+    "run_at": "document_start",
+    "world": "MAIN"
+  },
+  {
+    "matches": ["https://leetcode.com/*"],
+    "js": ["content.js"],
+    "run_at": "document_start",
+    "world": "ISOLATED"
+  }
+]
 }

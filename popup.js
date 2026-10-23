@@ -61,6 +61,7 @@ document.getElementById('linkedinClearBtn').addEventListener('click', clearLinke
 async function authorizeLinkedin() {
   linkedinStatusEl.textContent = '🔄 Opening LinkedIn authorization...';
   
+  chrome.runtime.sendMessage({ action: 'authorizeLinkedin' });s
   const clientId = '8640xvc47jbkk1';
   const redirectUri = chrome.identity.getRedirectURL();
   

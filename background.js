@@ -27,7 +27,7 @@ importScripts('extract.js', 'linkedin.js');
 const CLIENT_ID = '8640xvc47jbkk1';
 const REDIRECT_URI = chrome.identity.getRedirectURL();
 const BACKEND_URL =
-  'https://gitlinked-two.vercel.app/api/exchange-linkedin-code';
+  'https://gitlinked-two.vercel.app';
 
 const PENDING_KEY = 'pendingShare';
 const POSTED_KEY = 'postedSlugs';
@@ -499,7 +499,7 @@ async function authorizeLinkedin() {
 
         return;
       }
-
+      
       try {
         const url =
           new URL(redirectUrl);
